@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#080910">
+<title>Tras una noche de lluvia — Acto I</title>
+<style>
+  :root {
+    --pink: #ff0055;
+    --cyan: #45f3ff;
+    --violet: #9c55ff;
+    --ink: #080910;
+    --panel: rgba(7, 8, 16, .88);
+  }
+  * { box-sizing: border-box; }
+  html, body { width:100%; height:100%; margin:0; overflow:hidden; background:var(--ink); color:#fff; }
+  body {
+    font-family: Impact, Haettenschweiler, "Arial Narrow Bold", system-ui, sans-serif;
+    letter-spacing:.035em;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select:none;
+  }
+  #game {
+    position:relative; width:100%; height:100%; min-height:100%;
+    isolation:isolate; overflow:hidden; background:#080910;
+  }
+  .scene {
+    position:absolute; inset:0; background-color:#10111a;
+    background-position:center; background-size:cover; background-repeat:no-repeat;
+  }
+  #storyScene { background-image:linear-gradient(0deg,rgba(4,5,12,.85),rgba(4,5,12,.12) 58%,rgba(4,5,12,.2)),url("acto1_bar.jpg"); }
+  #combatScene { display:none; background-image:linear-gradient(0deg,rgba(5,5,10,.22),rgba(5,5,10,.22)),url("perseguicion.jpg"); }
+  /* Lightweight CRT overlay: fixed repeating gradients, no image/filter processing. */
+  #crt {
+    pointer-events:none; position:absolute; inset:0; z-index:20; opacity:.19;
+    background:repeating-linear-gradient(to bottom, transparent 0px, transparent 3px, rgba(0,0,0,.45) 4px);
+    mix-blend-mode:multiply;
+  }
+  #crt:after {
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(90deg,rgba(255,0,85,.035),transparent 30%,rgba(69,243,255,.035));
+  }
+  .vignette { position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse at center,transparent 38%,rgba(0,0,0,.65) 100%); }
+  .topline {
+    position:absolute; top:max(14px,env(safe-area-inset-top)); left:clamp(14px,3vw,38px); right:clamp(14px,3vw,38px);
+    display:flex; align-items:center; justify-content:space-between; gap:12px; z-index:3;
+    text-transform:uppercase; font-size:clamp(10px,1.7vw,14px); letter-spacing:.18em;
+    text-shadow:0 2px 8px #000;
+  }
+  .brand { color:var(--cyan); border-left:3px solid var(--pink); padding-left:10px; }
+  .act-label { color:#fff; opacity:.8; text-align:right; }
+  #storyTap {
+    position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; justify-content:flex-end;
+    padding:clamp(18px,4vw,54px); padding-bottom:max(clamp(24px,5vh,54px),env(safe-area-inset-bottom));
+    cursor:pointer; outline:none;
+  }
+  .dialogue {
+    width:min(920px,100%); margin:0 auto; border-top:3px solid var(--pink);
+    background:linear-gradient(110deg,rgba(5,6,13,.94),rgba(5,6,13,.76));
+    padding:clamp(16px,3vw,30px); box-shadow:0 0 0 1px rgba(69,243,255,.2), 12px 12px 0 rgba(0,0,0,.25);
+    min-height:clamp(145px,23vh,210px); position:relative;
+  }
+  #speaker { color:var(--cyan); font-size:clamp(12px,2vw,17px); text-transform:uppercase; letter-spacing:.19em; margin:0 0 12px; }
+  #speaker.system { color:var(--pink); }
+  #line { font-family:Arial,Helvetica,sans-serif; font-weight:600; letter-spacing:.015em; line-height:1.55; font-size:clamp(16px,2.6vw,25px); margin:0; max-width:75ch; }
+  #tapHint { position:absolute; right:clamp(16px,3vw,30px); bottom:12px; color:var(--cyan); font:700 10px Arial,sans-serif; letter-spacing:.15em; animation:pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity:.35; } }
+  #actionWrap {
+    display:none; position:absolute; inset:0; z-index:5; align-items:center; justify-content:center; padding:24px;
+    background:radial-gradient(ellipse,rgba(5,6,14,.18),rgba(0,0,0,.72));
+  }
+  #actionButton {
+    appearance:none; border:2px solid var(--cyan); color:#fff; background:var(--pink); cursor:pointer;
+    padding:clamp(18px,3vw,28px) clamp(24px,6vw,64px); font:900 clamp(17px,3.5vw,30px)/1.1 Impact,system-ui,sans-serif;
+    letter-spacing:.08em; text-transform:uppercase; box-shadow:7px 7px 0 #07080d,0 0 28px rgba(255,0,85,.4);
+    transform:skew(-3deg); max-width:100%;
+  }
+  #actionButton:active { transform:skew(-3deg) translate(3px,3px); box-shadow:4px 4px 0 #07080d; }
+  #combatHud {
+    display:none; position:absolute; z-index:4; inset:0; pointer-events:none;
+  }
+  .hudbar {
+    position:absolute; top:max(54px,calc(env(safe-area-inset-top) + 45px)); left:clamp(14px,3vw,38px); right:clamp(14px,3vw,38px);
+    display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
+    font-size:clamp(11px,2vw,16px); text-transform:uppercase; text-shadow:0 2px 5px #000;
+  }
+  .hudbox { padding:10px 13px; background:var(--panel); border-left:3px solid var(--cyan); }
+  #score { color:var(--pink); font-size:1.25em; }
+  #targets { position:absolute; inset:0; z-index:6; }
+  .target {
+    position:absolute; width:clamp(42px,8vw,66px); height:clamp(42px,8vw,66px); transform:translate(-50%,-50%);
+    border:0; padding:0; border-radius:50%; background:transparent; cursor:crosshair; touch-action:manipulation;
+    filter:drop-shadow(0 0 6px rgba(255,0,85,.75));
+  }
+  .target:before,.target:after { content:""; position:absolute; inset:7%; border:2px solid var(--pink); border-radius:50%; }
+  .target:after { inset:35%; background:var(--pink); border:0; box-shadow:0 0 12px var(--pink); }
+  .target .cross { position:absolute; inset:0; }
+  .target .cross:before,.target .cross:after { content:""; position:absolute; background:var(--pink); }
+  .target .cross:before { width:2px; height:100%; left:calc(50% - 1px); }
+  .target .cross:after { height:2px; width:100%; top:calc(50% - 1px); }
+  .target:active { transform:translate(-50%,-50%) scale(.86); }
+  #victory {
+    display:none; position:absolute; z-index:10; inset:0; align-items:center; justify-content:center; text-align:center; padding:24px;
+    background:radial-gradient(ellipse,rgba(20,12,30,.82),rgba(0,0,0,.96));
+  }
+  .victory-card { width:min(700px,100%); border:2px solid var(--cyan); padding:clamp(26px,6vw,58px); box-shadow:0 0 35px rgba(69,243,255,.15); }
+  .victory-card h1 { margin:0 0 16px; color:var(--pink); font-size:clamp(35px,8vw,76px); line-height:.95; text-transform:uppercase; text-shadow:4px 4px 0 #090910; }
+  .victory-card p { font:600 clamp(15px,2.4vw,21px)/1.6 Arial,sans-serif; }
+  .victory-card small { color:var(--cyan); letter-spacing:.2em; }
+  #flash { position:absolute; inset:0; z-index:15; pointer-events:none; opacity:0; background:#fff; }
+  #flash.white { animation:whiteFlash .42s ease-out; }
+  #flash.hit { background:#ff003c; animation:redFlash .1s linear; }
+  @keyframes whiteFlash { 0%{opacity:0} 18%{opacity:.98} 100%{opacity:0} }
+  @keyframes redFlash { 0%{opacity:.65} 100%{opacity:0} }
+  #muteButton {
+    pointer-events:auto; cursor:pointer; background:rgba(0,0,0,.65); color:#fff; border:1px solid rgba(69,243,255,.55);
+    padding:8px 10px; font:700 10px Arial,sans-serif; letter-spacing:.1em;
+  }
+  @media (max-height:480px) {
+    .dialogue { min-height:118px; padding:13px 16px 24px; }
+    #speaker { margin-bottom:6px; }
+    #line { font-size:clamp(14px,2.7vh,19px); line-height:1.35; }
+    #storyTap { padding-bottom:14px; }
+  }
+  @media (prefers-reduced-motion:reduce) { *,*:before,*:after { animation-duration:.01ms !important; animation-iteration-count:1 !important; } }
+</style>
+</head>
+<body>
+<main id="game" aria-label="Tras una noche de lluvia, videojuego">
+  <section id="storyScene" class="scene" aria-label="Interior de un bar durante una noche de lluvia">
+    <div class="vignette"></div>
+    <div class="topline"><div class="brand">VGP INTERACTIVE</div><div class="act-label">Tras una noche de lluvia · Acto I</div></div>
+    <div id="storyTap" role="button" tabindex="0" aria-label="Avanzar diálogo">
+      <div class="dialogue">
+        <h2 id="speaker">Sistema</h2>
+        <p id="line" aria-live="polite"></p>
+        <span id="tapHint">TOCÁ PARA CONTINUAR ▸</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="combatScene" class="scene" aria-label="Persecución">
+    <div class="vignette"></div>
+  </section>
+  <div class="topline" id="combatTop" style="display:none"><div class="brand">TRAS UNA NOCHE DE LLUVIA</div><button id="muteButton" type="button">♫ SONIDO: ON</button></div>
+  <div id="combatHud">
+    <div class="hudbar">
+      <div class="hudbox">HÉCTOR <span style="color:var(--cyan)">/ PRECISIÓN</span></div>
+      <div class="hudbox">IMPACTOS <span id="score">0</span> / 5</div>
+    </div>
+  </div>
+  <div id="targets" aria-label="Objetivos"></div>
+  <div id="actionWrap"><button id="actionButton" type="button">¡ACELERAR Y DISPARAR!</button></div>
+  <div id="victory">
+    <div class="victory-card">
+      <small>FIN DEL PRÓLOGO DE ACCIÓN</small>
+      <h1>¡Sobrevivieron!</h1>
+      <p>El motor ruge bajo la lluvia. Héctor mantiene el control del volante mientras la noche todavía guarda demasiadas preguntas.</p>
+      <p style="color:var(--cyan);margin-bottom:0">ACTO I · CONTINUARÁ</p>
+    </div>
+  </div>
+  <div id="flash"></div>
+  <div id="crt"></div>
+</main>
+
+<!-- Audio starts after the player's first gesture to respect mobile autoplay policies.
+     Put these MP3 files beside index.html in the GitHub Pages repository. -->
+<audio id="jazz" src="musica_lluvia_jazz.mp3" loop preload="none"></audio>
+<audio id="brake" src="frenazo.mp3" preload="none"></audio>
+<audio id="actionMusic" src="musica_accion.mp3" loop preload="none"></audio>
+
+<script>
+(() => {
+  "use strict";
+
+  // Character data is centralized here for easy balancing and later unlocks.
+  const CHARACTERS = {
+    hector: {
+      name: "Héctor", active: true, unlocked: true,
+      speed: 0.72, accuracy: 0.96, damage: 1,
+      description: "Equilibrado, preciso y de reacción serena."
+    },
+    jazmin: {
+      name: "Jazmín", active: false, unlocked: true,
+      speed: 1.35, accuracy: 0.78, damage: 2,
+      description: "Velocidad alta, daño elevado; campera violeta."
+    },
+    jackeline: {
+      name: "Jackeline", active: false, unlocked: false,
+      speed: 1.0, accuracy: 0.88, damage: 1,
+      description: "Evoluciona durante la historia; se desbloquea más adelante."
+    }
+  };
+  const activeCharacter = CHARACTERS.hector;
+
+  const lines = [
+    { speaker: "Sistema", text: "Acto I: La Noche de Lluvia.", kind: "system" },
+    { speaker: "Narrador", text: "La oficina quedó atrás. La tormenta de Buenos Aires inunda las calles oscuras..." },
+    { speaker: "Héctor", text: "Solo quería refugiarme del agua... pero al entrar a ese bar, la vi a ella." },
+    { speaker: "Jazmín", text: "Me están buscando. Si te quedas conmigo, vas a tener que disparar." }
+  ];
+
+  const $ = id => document.getElementById(id);
+  const storyScene = $("storyScene"), storyTap = $("storyTap");
+  const speakerEl = $("speaker"), lineEl = $("line"), hintEl = $("tapHint");
+  const actionWrap = $("actionWrap"), actionButton = $("actionButton");
+  const combatScene = $("combatScene"), combatHud = $("combatHud"), combatTop = $("combatTop");
+  const targetsEl = $("targets"), scoreEl = $("score"), victory = $("victory"), flash = $("flash");
+  const jazz = $("jazz"), brake = $("brake"), actionMusic = $("actionMusic");
+
+  let lineIndex = 0, typing = false, typeTimer = null, score = 0;
+  let audioEnabled = true, audioStarted = false, combatStarted = false, targetTimer = null;
+
+  function startJazz() {
+    if (audioStarted || !audioEnabled) return;
+    audioStarted = true;
+    jazz.volume = 0.52;
+    jazz.play().catch(() => { audioStarted = false; });
+  }
+  function stopAudio(audio) {
+    audio.pause();
+    try { audio.currentTime = 0; } catch (_) {}
+  }
+  function showLine(index) {
+    clearInterval(typeTimer);
+    const entry = lines[index];
+    speakerEl.textContent = entry.speaker;
+    speakerEl.className = entry.kind === "system" ? "system" : "";
+    lineEl.textContent = "";
+    hintEl.style.display = "block";
+    let i = 0;
+    typing = true;
+    typeTimer = setInterval(() => {
+      lineEl.textContent = entry.text.slice(0, ++i);
+      if (i >= entry.text.length) {
+        clearInterval(typeTimer);
+        typing = false;
+      }
+    }, 24);
+  }
+  function advanceStory() {
+    if (combatStarted || actionWrap.style.display === "flex") return;
+    startJazz();
+    if (typing) {
+      clearInterval(typeTimer);
+      lineEl.textContent = lines[lineIndex].text;
+      typing = false;
+      return;
+    }
+    lineIndex++;
+    if (lineIndex < lines.length) {
+      showLine(lineIndex);
+    } else {
+      storyTap.style.display = "none";
+      actionWrap.style.display = "flex";
+    }
+  }
+  storyTap.addEventListener("click", advanceStory);
+  storyTap.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); advanceStory(); }
+  });
+
+  function flashScreen(kind) {
+    flash.className = "";
+    void flash.offsetWidth;
+    flash.className = kind;
+  }
+  function launchCombat() {
+    if (combatStarted) return;
+    combatStarted = true;
+    stopAudio(jazz);
+    audioStarted = false;
+    actionWrap.style.display = "none";
+    flashScreen("white");
+    if (audioEnabled) {
+      brake.volume = 0.85;
+      brake.currentTime = 0;
+      brake.play().catch(() => {});
+    }
+    // The brief lightning flash overlaps the transition for a cinematic cut.
+    window.setTimeout(() => {
+      storyScene.style.display = "none";
+      combatScene.style.display = "block";
+      combatHud.style.display = "block";
+      combatTop.style.display = "flex";
+      if (audioEnabled) {
+        actionMusic.volume = 0.62;
+        actionMusic.play().catch(() => {});
+      }
+      score = 0;
+      scoreEl.textContent = score;
+      spawnTarget();
+    }, 180);
+  }
+  actionButton.addEventListener("click", launchCombat);
+
+  function randomPosition() {
+    const rect = $("game").getBoundingClientRect();
+    const marginX = Math.min(55, rect.width * 0.12);
+    const topLimit = Math.min(rect.height * 0.25, 140);
+    const bottomLimit = Math.min(rect.height * 0.18, 90);
+    return {
+      x: marginX + Math.random() * Math.max(1, rect.width - marginX * 2),
+      y: topLimit + Math.random() * Math.max(1, rect.height - topLimit - bottomLimit)
+    };
+  }
+  function spawnTarget() {
+    if (score >= 5) { finishCombat(); return; }
+    targetsEl.replaceChildren();
+    const pos = randomPosition();
+    const target = document.createElement("button");
+    target.className = "target";
+    target.type = "button";
+    target.setAttribute("aria-label", "Disparar al objetivo");
+    target.style.left = pos.x + "px";
+    target.style.top = pos.y + "px";
+    const cross = document.createElement("span");
+    cross.className = "cross";
+    target.appendChild(cross);
+    target.addEventListener("click", event => {
+      event.stopPropagation();
+      if (!combatStarted || score >= 5) return;
+      score += activeCharacter.damage;
+      score = Math.min(score, 5);
+      scoreEl.textContent = score;
+      flashScreen("hit");
+      targetsEl.replaceChildren();
+      if (score >= 5) finishCombat();
+      else {
+        // Héctor's controlled pace gives the player a clear, accurate target.
+        window.setTimeout(spawnTarget, Math.max(140, 330 / activeCharacter.speed));
+      }
+    }, { once: true });
+    targetsEl.appendChild(target);
+    // No unavoidable target timeout: the player can aim comfortably on a phone.
+  }
+  function finishCombat() {
+    clearTimeout(targetTimer);
+    targetsEl.replaceChildren();
+    stopAudio(actionMusic);
+    victory.style.display = "flex";
+  }
+  $("muteButton").addEventListener("click", () => {
+    audioEnabled = !audioEnabled;
+    $("muteButton").textContent = audioEnabled ? "♫ SONIDO: ON" : "♫ SONIDO: OFF";
+    if (!audioEnabled) {
+      stopAudio(jazz); stopAudio(brake); stopAudio(actionMusic);
+    } else if (combatStarted && victory.style.display !== "flex") {
+      actionMusic.play().catch(() => {});
+    }
+  });
+
+  // Initial dialogue. Future Acts can be added to `lines` or mounted as new scene sections.
+  showLine(0);
+
+  // Future expansion points:
+  // - Act II: append a new scene and its dialogue array after the victory screen.
+  // - Character selection: change `activeCharacter` through a selection UI once Jazmín is playable.
+  // - Persistent story chapters: route from `finishCombat()` into the next Act instead of victory.
+})();
+</script>
+</body>
+</html>
