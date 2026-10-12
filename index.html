@@ -30,7 +30,7 @@
     position:absolute; inset:0; background-color:#10111a;
     background-position:center; background-size:cover; background-repeat:no-repeat;
   }
-  #storyScene { background-image:linear-gradient(0deg,rgba(4,5,12,.85),rgba(4,5,12,.12) 58%,rgba(4,5,12,.2)),url("acto1_bar.jpg"); }
+  #storyScene { touch-action:manipulation; background-image:linear-gradient(0deg,rgba(4,5,12,.85),rgba(4,5,12,.12) 58%,rgba(4,5,12,.2)),url("acto1_bar.jpg"); }
   #combatScene { display:none; background-image:linear-gradient(0deg,rgba(5,5,10,.22),rgba(5,5,10,.22)),url("perseguicion.jpg"); }
   /* Lightweight CRT overlay: fixed repeating gradients, no image/filter processing. */
   #crt {
@@ -54,7 +54,7 @@
   #storyTap {
     position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; justify-content:flex-end;
     padding:clamp(18px,4vw,54px); padding-bottom:max(clamp(24px,5vh,54px),env(safe-area-inset-bottom));
-    cursor:pointer; outline:none;
+    cursor:pointer; outline:none; touch-action:manipulation; pointer-events:auto;
   }
   .dialogue {
     width:min(920px,100%); margin:0 auto; border-top:3px solid var(--pink);
@@ -65,7 +65,7 @@
   #speaker { color:var(--cyan); font-size:clamp(12px,2vw,17px); text-transform:uppercase; letter-spacing:.19em; margin:0 0 12px; }
   #speaker.system { color:var(--pink); }
   #line { font-family:Arial,Helvetica,sans-serif; font-weight:600; letter-spacing:.015em; line-height:1.55; font-size:clamp(16px,2.6vw,25px); margin:0; max-width:75ch; }
-  #tapHint { position:absolute; right:clamp(16px,3vw,30px); bottom:12px; color:var(--cyan); font:700 10px Arial,sans-serif; letter-spacing:.15em; animation:pulse 1.2s infinite; }
+  #tapHint { appearance:none; border:0; background:transparent; padding:8px 0 8px 8px; cursor:pointer; position:absolute; right:clamp(16px,3vw,30px); bottom:10px; color:var(--cyan); background:transparent; border:0; padding:8px; cursor:pointer; font:700 11px Arial,sans-serif; letter-spacing:.15em; animation:pulse 1.2s infinite; z-index:4; }
   @keyframes pulse { 50% { opacity:.35; } }
   #actionWrap {
     display:none; position:absolute; inset:0; z-index:5; align-items:center; justify-content:center; padding:24px;
@@ -131,12 +131,12 @@
 <main id="game" aria-label="Tras una noche de lluvia, videojuego">
   <section id="storyScene" class="scene" aria-label="Interior de un bar durante una noche de lluvia">
     <div class="vignette"></div>
-    <div class="topline"><div class="brand">VGP INTERACTIVE</div><div class="act-label">Tras una noche de lluvia · Acto I</div></div>
-    <div id="storyTap" role="button" tabindex="0" aria-label="Avanzar diálogo">
+    <div class="topline"><div class="brand">VGP INTERACTIVE · BUILD TÁCTIL 03</div><div class="act-label">Tras una noche de lluvia · Acto I</div></div>
+    <div id="storyTap" aria-label="Avanzar diálogo">
       <div class="dialogue">
         <h2 id="speaker">Sistema</h2>
         <p id="line" aria-live="polite"></p>
-        <span id="tapHint">TOCÁ PARA CONTINUAR ▸</span>
+        <button id="tapHint" type="button" aria-label="Tocar para continuar">TOCÁ PARA CONTINUAR ▸</button>
       </div>
     </div>
   </section>
@@ -210,7 +210,7 @@
   const targetsEl = $("targets"), scoreEl = $("score"), victory = $("victory"), flash = $("flash");
   const jazz = $("jazz"), brake = $("brake"), actionMusic = $("actionMusic");
 
-  let lineIndex = 0, typing = false, typeTimer = null, score = 0;
+  let lineIndex = 0, typing = false, typeTimer = null, score = 0, storyFinished = false;
   let audioEnabled = true, audioStarted = false, combatStarted = false, targetTimer = null;
 
   function startJazz() {
@@ -241,7 +241,7 @@
     }, 24);
   }
   function advanceStory() {
-    if (combatStarted || actionWrap.style.display === "flex") return;
+    if (combatStarted || storyFinished) return;
     startJazz();
     if (typing) {
       clearInterval(typeTimer);
@@ -253,13 +253,29 @@
     if (lineIndex < lines.length) {
       showLine(lineIndex);
     } else {
+      storyFinished = true;
       storyTap.style.display = "none";
       actionWrap.style.display = "flex";
     }
   }
-  storyTap.addEventListener("click", advanceStory);
-  storyTap.addEventListener("keydown", e => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); advanceStory(); }
+  // Control simple y robusto: un único click sobre cualquier parte de la escena.
+  // Los navegadores móviles convierten el toque en click; evitamos combinar
+  // pointerup + click porque puede bloquear o duplicar avances.
+  window.advanceStoryFromTap = function () { advanceStory(); };
+  storyTap.addEventListener("click", function (event) {
+    if (event.target.closest("button")) event.preventDefault();
+    advanceStory();
+  });
+  hintEl.addEventListener("click", function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    advanceStory();
+  });
+  document.addEventListener("keydown", event => {
+    if ((event.key === "Enter" || event.key === " ") && !combatStarted && !storyFinished && storyScene.style.display !== "none") {
+      event.preventDefault();
+      advanceStory();
+    }
   });
 
   function flashScreen(kind) {
